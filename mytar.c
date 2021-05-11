@@ -291,45 +291,43 @@ int main(int argc, char* argv[])
 
 	size_t block_index = 0;
 
+	FILE* file_output = NULL;
+	int return_code = 0;
+
 	while (true)
 	{
-		FILE* file_output = NULL;
-
 		header_t header;
 
 		read_header_status_t read_header_status = read_header(file, &header);
 
-		switch (read_header_status)
+		if (read_header_status == READ_HEADER_EOF)
 		{
-			case READ_HEADER_EOF:
-				if (header_was_null)
-				{
-					printf("mytar: A lone zero block at %zu\n", block_index);
-				}
-				fclose(file);
-				if (file_output)
-					fclose(file_output);
-				free(free_arguments_found);
-				free(options.free_arguments);
-				return 0;
-			case READ_HEADER_PARTIAL:
-				printf("mytar: Unexpected EOF in archive\n"
-					   "mytar: Error is not recoverable: exiting now\n");
-				fclose(file);
-				if (file_output)
-					fclose(file_output);
-				free(free_arguments_found);
-				free(options.free_arguments);
-				return 2;
-			default:
-				++block_index;
-				break;
+			if (header_was_null)
+				printf("mytar: A lone zero block at %zu\n", block_index);
+
+			return_code = 0;
+			break;
+		}
+		else if (read_header_status == READ_HEADER_PARTIAL)
+		{
+			printf("mytar: Unexpected EOF in archive\n"
+				   "mytar: Error is not recoverable: exiting now\n");
+
+			return_code = 2;
+			break;
+		}
+		else
+		{
+			++block_index;
 		}
 
 		if (header_is_null(&header))
 		{
 			if (header_was_null)
+			{
+				return_code = 0;
 				break;
+			}
 			else
 			{
 				header_was_null = true;
@@ -344,12 +342,8 @@ int main(int argc, char* argv[])
 				"mytar: This does not look like a tar archive\n"
 				"mytar: Exiting with failure status due to previous errors\n");
 
-			fclose(file);
-			if (file_output)
-				fclose(file_output);
-			free(free_arguments_found);
-			free(options.free_arguments);
-			return 2;
+			return_code = 2;
+			break;
 		}
 
 		if (!header_is_regular_file(&header))
@@ -358,12 +352,8 @@ int main(int argc, char* argv[])
 					"mytar: Unsupported header type: %d\n",
 					(int)header.typeflag);
 
-			fclose(file);
-			if (file_output)
-				fclose(file_output);
-			free(free_arguments_found);
-			free(options.free_arguments);
-			return 2;
+			return_code = 2;
+			break;
 		}
 
 		bool consider_this_file = false;
@@ -383,20 +373,21 @@ int main(int argc, char* argv[])
 			file_output = fopen(header.name, "wb");
 			if (!file_output)
 			{
-				fclose(file);
-				free(free_arguments_found);
-				free(options.free_arguments);
+				fprintf(stderr,
+						"mytar: Couldn't create file %s\n",
+						header.name);
 
-				return 69;
+				return_code = 9;
+				break;
 			}
 		}
 
 		size_t size = header_get_size(&header);
-		size_t size512 = size_to_record_count(size);
+		size_t record_count = size_to_record_count(size);
 
 		char buffer[RECORD_SIZE];
 
-		for (size_t i = 0; i != size512; ++i)
+		for (size_t i = 0; i != record_count; ++i)
 		{
 			size_t read = fread(buffer, 1, RECORD_SIZE, file);
 
@@ -414,24 +405,27 @@ int main(int argc, char* argv[])
 
 			if (read != RECORD_SIZE)
 			{
-				printf("mytar: Unexpected EOF in archive\n"
-					   "mytar: Error is not recoverable: exiting now\n");
+				printf(
+					"mytar: Unexpected EOF in archive\n"
+					"mytar: Error is not recoverable: exiting now\n"); // should
+																	   // print
+																	   // to
+																	   // stderr
 
-				fclose(file);
-				if (file_output)
-					fclose(file_output);
-				free(free_arguments_found);
-				free(options.free_arguments);
-
-				return 2;
+				return_code = 2;
+				break;
 			}
 
 			++block_index;
 		}
 
+		if (return_code != 0)
+			break;
+
 		if (options.x && consider_this_file)
 		{
 			fclose(file_output);
+			file_output = NULL;
 		}
 	}
 
@@ -457,16 +451,15 @@ int main(int argc, char* argv[])
 			printf("mytar: Exiting with failure status due to previous "
 				   "errors\n"); // should print to stderr
 
-			fclose(file);
-			free(free_arguments_found);
-			free(options.free_arguments);
-			return 2;
+			return_code = 2;
 		}
 	}
 
 	fclose(file);
+	if (file_output)
+		fclose(file_output);
 	free(free_arguments_found);
 	free(options.free_arguments);
 
-	return 0;
+	return return_code;
 }
