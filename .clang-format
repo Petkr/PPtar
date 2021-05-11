@@ -1,0 +1,26 @@
+BasedOnStyle: Mozilla
+Language: Cpp
+ColumnLimit: 80
+UseTab: Always
+TabWidth: 4
+IndentWidth: 4
+ContinuationIndentWidth: 4
+ConstructorInitializerIndentWidth: 4
+AccessModifierOffset: -4
+AllowShortFunctionsOnASingleLine: None
+AllowShortLambdasOnASingleLine: None
+NamespaceIndentation: All
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterClass: true
+  AfterFunction: true
+  AfterNamespace: true
+  BeforeLambdaBody: true
+  BeforeElse: true
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+SpaceAfterTemplateKeyword: true
+AlwaysBreakAfterDefinitionReturnType: None
+AlwaysBreakAfterReturnType: None
+AlignAfterOpenBracket: Align
+AllowAllArgumentsOnNextLine: false
