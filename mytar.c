@@ -3,6 +3,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+/** Structure containing command line options and arguments.
+ * Handles:
+ *  -f <arg>
+ *  -t
+ *  -x
+ *  -v
+ *  free arguments
+ */
 typedef struct options
 {
 	bool f;
@@ -17,6 +25,9 @@ typedef struct options
 	int error_code;
 } options_t;
 
+/** Creates a default options_t with capacity for free arguments of
+ * 'free_arguments_capacity'.
+ */
 static options_t options_default(size_t free_arguments_capacity)
 {
 	options_t options;
@@ -37,11 +48,15 @@ static options_t options_default(size_t free_arguments_capacity)
 	return options;
 }
 
+/** Checks if 'options' contains any free arguments. */
 static bool options_has_free_arguments(const options_t* options)
 {
 	return options->free_arguments_count != 0;
 }
 
+/** Checks if 'options' contains a free argument equal to 'str' and marks it in
+ * the 'free_arguments_found' array.
+ */
 static bool options_find_free_argument(const options_t* options,
 									   const char* str,
 									   bool* free_arguments_found)
@@ -159,6 +174,7 @@ static options_t parse_arguments_helper(size_t argc, char* const* argv)
 	return options;
 }
 
+/** Parses the command line for options. */
 static options_t parse_arguments(size_t argc, char* const* argv)
 {
 	options_t options = parse_arguments_helper(argc, argv);
@@ -169,6 +185,7 @@ static options_t parse_arguments(size_t argc, char* const* argv)
 	return options;
 }
 
+/** Structure representing a tar header block. */
 typedef struct header
 {
 	char name[100];
@@ -191,21 +208,16 @@ typedef struct header
 	char padding[12];
 } header_t;
 
+/** Size of one record in a tarball. */
 #define RECORD_SIZE ((size_t)512)
 
+/** Possible magic values in header block. */
 #define TMAGIC "ustar"
 #define TMAGICS "ustar "
 
-/* Values used in typeflag field.  */
-#define REGTYPE '0'	  /* regular file */
-#define AREGTYPE '\0' /* regular file */
-#define LNKTYPE '1'	  /* link */
-#define SYMTYPE '2'	  /* reserved */
-#define CHRTYPE '3'	  /* character special */
-#define BLKTYPE '4'	  /* block special */
-#define DIRTYPE '5'	  /* directory */
-#define FIFOTYPE '6'  /* FIFO special */
-#define CONTTYPE '7'  /* reserved */
+/** Values used in typeflag field. */
+#define REGTYPE '0'
+#define AREGTYPE '\0'
 
 typedef enum read_header_status
 {
@@ -214,6 +226,12 @@ typedef enum read_header_status
 	READ_HEADER_FULL
 } read_header_status_t;
 
+/** Attempts to read one header block from 'file'.
+ * @return Success code.
+ * @retval READ_HEADER_EOF - EOF (0 bytes left to read)
+ * @retval READ_HEADER_PARTIAL - partial read (truncated file)
+ * @retval READ_HEADER_FULL - read the full size of a header block
+ */
 static read_header_status_t read_header(FILE* file, header_t* header)
 {
 	size_t read_count = fread(header, sizeof(char), sizeof(header_t), file);
@@ -223,6 +241,7 @@ static read_header_status_t read_header(FILE* file, header_t* header)
 										  : READ_HEADER_PARTIAL;
 }
 
+/** Checks if 'header' contains the right magic value. */
 static bool header_is_magic_valid(const header_t* header)
 {
 	const size_t magic_size = sizeof(header->magic);
@@ -231,11 +250,13 @@ static bool header_is_magic_valid(const header_t* header)
 		   strncmp(header->magic, TMAGICS, magic_size) == 0;
 }
 
+/** Checks if 'header' corresponds to a regular file */
 static bool header_is_regular_file(const header_t* header)
 {
 	return header->typeflag == REGTYPE || header->typeflag == AREGTYPE;
 }
 
+/** Checks validity of 'header' and prints an error message. */
 static bool header_check_valid(const header_t* header)
 {
 	if (!header_is_magic_valid(header))
@@ -258,6 +279,7 @@ static bool header_check_valid(const header_t* header)
 	return true;
 }
 
+/** Checks if 'header' is a null block. */
 static bool header_is_null(const header_t* header)
 {
 	for (const char* i = (char*)header; i != (char*)(header + 1); ++i)
@@ -267,16 +289,19 @@ static bool header_is_null(const header_t* header)
 	return true;
 }
 
+/** Gets the size field from 'header'. */
 static size_t header_get_size(const header_t* header)
 {
 	return (size_t)strtoull(header->size, NULL, 8);
 }
 
+/** Returns the number of records a file of size 'x' occupies. */
 static size_t size_to_record_count(size_t x)
 {
 	return (x + RECORD_SIZE - 1) / RECORD_SIZE;
 }
 
+/** Prints errors about files from free arguments. */
 static int check_files(const options_t* options,
 					   const bool* free_arguments_found)
 {
@@ -306,25 +331,30 @@ static int check_files(const options_t* options,
 	return 0;
 }
 
-static bool* make_free_aguments_found(const options_t* options)
+/** Allocates and initializes an array of bools indicating whether a file from
+ * free arguments was found
+ */
+static bool* make_files_found(const options_t* options)
 {
-	bool* free_arguments_found =
-		malloc(sizeof(bool) * options->free_arguments_count);
+	bool* files_found = malloc(sizeof(bool) * options->free_arguments_count);
 
-	for (bool* i = free_arguments_found;
-		 i != free_arguments_found + options->free_arguments_count;
+	for (bool* i = files_found;
+		 i != files_found + options->free_arguments_count;
 		 ++i)
 		*i = false;
 
-	return free_arguments_found;
+	return files_found;
 }
 
+/** Checks if the file corresponding to 'header' is to be considered.
+ * Writes to 'files_found' the result of this search.
+ */
 static bool check_file_filter(const options_t* options,
 							  const header_t* header,
-							  bool* free_arguments_found)
+							  bool* files_found)
 {
 	if (!options_has_free_arguments(options) ||
-		options_find_free_argument(options, header->name, free_arguments_found))
+		options_find_free_argument(options, header->name, files_found))
 	{
 		if (options->t || (options->x && options->v))
 			printf("%.*s\n", (int)sizeof(header->name), header->name);
@@ -334,6 +364,7 @@ static bool check_file_filter(const options_t* options,
 	return false;
 }
 
+/** Tries to open the file from the argument of the -f option. */
 static FILE* try_open_tarball(const options_t* options)
 {
 	FILE* file = fopen(options->f_argument, "rb");
@@ -366,13 +397,16 @@ int main(int argc, char* argv[])
 
 	int return_code = 0;
 
+	// Keeps track of blocks read.
 	size_t block_index = 0;
 
-	bool header_was_null = false;
+	// If the last read block was a null block
+	bool was_null_block = false;
 
+	// Pointer to the current file being extracted or NULL
 	FILE* file_output = NULL;
 
-	bool* free_arguments_found = make_free_aguments_found(&options);
+	bool* files_found = make_files_found(&options);
 
 	while (true)
 	{
@@ -382,7 +416,7 @@ int main(int argc, char* argv[])
 
 		if (read_header_status == READ_HEADER_EOF)
 		{
-			if (header_was_null)
+			if (was_null_block)
 				printf("mytar: A lone zero block at %zu\n", block_index);
 
 			return_code = 0;
@@ -401,14 +435,14 @@ int main(int argc, char* argv[])
 
 		if (header_is_null(&header))
 		{
-			if (header_was_null)
+			if (was_null_block)
 			{
 				return_code = 0;
 				break;
 			}
 			else
 			{
-				header_was_null = true;
+				was_null_block = true;
 				continue;
 			}
 		}
@@ -416,8 +450,7 @@ int main(int argc, char* argv[])
 		if ((return_code = header_check_valid(&header)) != 0)
 			break;
 
-		if (options.x &&
-			check_file_filter(&options, &header, free_arguments_found))
+		if (options.x && check_file_filter(&options, &header, files_found))
 		{
 			file_output = fopen(header.name, "wb");
 			if (!file_output)
@@ -479,12 +512,12 @@ int main(int argc, char* argv[])
 	}
 
 	if (options.t && options_has_free_arguments(&options))
-		check_files(&options, free_arguments_found);
+		check_files(&options, files_found);
 
 	fclose(file);
 	if (file_output)
 		fclose(file_output);
-	free(free_arguments_found);
+	free(files_found);
 	free(options.free_arguments);
 
 	return return_code;
