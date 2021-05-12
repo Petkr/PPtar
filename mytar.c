@@ -236,6 +236,28 @@ static bool header_is_regular_file(const header_t* header)
 	return header->typeflag == REGTYPE || header->typeflag == AREGTYPE;
 }
 
+static bool header_check_valid(const header_t* header)
+{
+	if (!header_is_magic_valid(header))
+	{
+		fprintf(stderr,
+				"mytar: This does not look like a tar archive\n"
+				"mytar: Exiting with failure status due to previous errors\n");
+
+		return false;
+	}
+	else if (!header_is_regular_file(header))
+	{
+		fprintf(stderr,
+				"mytar: Unsupported header type: %d\n",
+				(int)header->typeflag);
+
+		return false;
+	}
+
+	return true;
+}
+
 static bool header_is_null(const header_t* header)
 {
 	for (const char* i = (char*)header; i != (char*)(header + 1); ++i)
@@ -255,6 +277,76 @@ static size_t size_to_record_count(size_t x)
 	return (x + RECORD_SIZE - 1) / RECORD_SIZE;
 }
 
+static int check_files(const options_t* options,
+					   const bool* free_arguments_found)
+{
+	bool some_was_not_found = false;
+
+	const char** free_argument_i = options->free_arguments;
+
+	for (const bool* i = free_arguments_found; *free_argument_i != NULL;
+		 ++i, ++free_argument_i)
+	{
+		if (!*i)
+		{
+			printf("mytar: %s: Not found in archive\n",
+				   *free_argument_i); // should print to stderr
+			some_was_not_found = true;
+		}
+	}
+
+	if (some_was_not_found)
+	{
+		printf("mytar: Exiting with failure status due to previous "
+			   "errors\n"); // should print to stderr
+
+		return 2;
+	}
+
+	return 0;
+}
+
+static bool* make_free_aguments_found(const options_t* options)
+{
+	bool* free_arguments_found =
+		malloc(sizeof(bool) * options->free_arguments_count);
+
+	for (bool* i = free_arguments_found;
+		 i != free_arguments_found + options->free_arguments_count;
+		 ++i)
+		*i = false;
+
+	return free_arguments_found;
+}
+
+static bool check_file_filter(const options_t* options,
+							  const header_t* header,
+							  bool* free_arguments_found)
+{
+	if (!options_has_free_arguments(options) ||
+		options_find_free_argument(options, header->name, free_arguments_found))
+	{
+		if (options->t || (options->x && options->v))
+			printf("%.*s\n", (int)sizeof(header->name), header->name);
+		return true;
+	}
+
+	return false;
+}
+
+static FILE* try_open_tarball(const options_t* options)
+{
+	FILE* file = fopen(options->f_argument, "rb");
+
+	if (!file)
+	{
+		fprintf(stderr, "mytar: could not open file %s\n", options->f_argument);
+		free(options->free_arguments);
+	}
+
+	return file;
+}
+
 int main(int argc, char* argv[])
 {
 	if (argc == 0)
@@ -268,31 +360,19 @@ int main(int argc, char* argv[])
 	if (options.error_code != 0)
 		return options.error_code;
 
-	FILE* file = fopen(options.f_argument, "rb");
-
+	FILE* file = try_open_tarball(&options);
 	if (!file)
-	{
-		fprintf(stderr, "mytar: could not open file %s\n", options.f_argument);
-		free(options.free_arguments);
 		return 2;
-	}
 
-	bool header_was_null = false;
-
-	bool has_free_arguments = options_has_free_arguments(&options);
-
-	bool* free_arguments_found =
-		malloc(sizeof(bool) * options.free_arguments_count);
-
-	for (bool* i = free_arguments_found;
-		 i != free_arguments_found + options.free_arguments_count;
-		 ++i)
-		*i = false;
+	int return_code = 0;
 
 	size_t block_index = 0;
 
+	bool header_was_null = false;
+
 	FILE* file_output = NULL;
-	int return_code = 0;
+
+	bool* free_arguments_found = make_free_aguments_found(&options);
 
 	while (true)
 	{
@@ -316,10 +396,8 @@ int main(int argc, char* argv[])
 			return_code = 2;
 			break;
 		}
-		else
-		{
-			++block_index;
-		}
+
+		++block_index;
 
 		if (header_is_null(&header))
 		{
@@ -335,40 +413,11 @@ int main(int argc, char* argv[])
 			}
 		}
 
-		if (!header_is_magic_valid(&header))
-		{
-			fprintf(
-				stderr,
-				"mytar: This does not look like a tar archive\n"
-				"mytar: Exiting with failure status due to previous errors\n");
-
-			return_code = 2;
+		if ((return_code = header_check_valid(&header)) != 0)
 			break;
-		}
 
-		if (!header_is_regular_file(&header))
-		{
-			fprintf(stderr,
-					"mytar: Unsupported header type: %d\n",
-					(int)header.typeflag);
-
-			return_code = 2;
-			break;
-		}
-
-		bool consider_this_file = false;
-
-		if (!has_free_arguments ||
-			options_find_free_argument(&options,
-									   header.name,
-									   free_arguments_found))
-		{
-			if (options.t || (options.x && options.v))
-				printf("%.*s\n", (int)sizeof(header.name), header.name);
-			consider_this_file = true;
-		}
-
-		if (options.x && consider_this_file)
+		if (options.x &&
+			check_file_filter(&options, &header, free_arguments_found))
 		{
 			file_output = fopen(header.name, "wb");
 			if (!file_output)
@@ -391,7 +440,7 @@ int main(int argc, char* argv[])
 		{
 			size_t read = fread(buffer, 1, RECORD_SIZE, file);
 
-			if (options.x && consider_this_file)
+			if (file_output != NULL)
 			{
 				fwrite(buffer,
 					   1,
@@ -422,38 +471,15 @@ int main(int argc, char* argv[])
 		if (return_code != 0)
 			break;
 
-		if (options.x && consider_this_file)
+		if (file_output != NULL)
 		{
 			fclose(file_output);
 			file_output = NULL;
 		}
 	}
 
-	if (options.t && has_free_arguments)
-	{
-		bool some_was_not_found = false;
-
-		const char** free_argument_i = options.free_arguments;
-
-		for (bool* i = free_arguments_found; *free_argument_i != NULL;
-			 ++i, ++free_argument_i)
-		{
-			if (!*i)
-			{
-				printf("mytar: %s: Not found in archive\n",
-					   *free_argument_i); // should print to stderr
-				some_was_not_found = true;
-			}
-		}
-
-		if (some_was_not_found)
-		{
-			printf("mytar: Exiting with failure status due to previous "
-				   "errors\n"); // should print to stderr
-
-			return_code = 2;
-		}
-	}
+	if (options.t && options_has_free_arguments(&options))
+		check_files(&options, free_arguments_found);
 
 	fclose(file);
 	if (file_output)
