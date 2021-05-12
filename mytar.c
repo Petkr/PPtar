@@ -257,7 +257,7 @@ static bool header_is_regular_file(const header_t* header)
 }
 
 /** Checks validity of 'header' and prints an error message. */
-static bool header_check_valid(const header_t* header)
+static int header_check_valid(const header_t* header)
 {
 	if (!header_is_magic_valid(header))
 	{
@@ -265,7 +265,7 @@ static bool header_check_valid(const header_t* header)
 				"mytar: This does not look like a tar archive\n"
 				"mytar: Exiting with failure status due to previous errors\n");
 
-		return false;
+		return 2;
 	}
 	else if (!header_is_regular_file(header))
 	{
@@ -273,10 +273,10 @@ static bool header_check_valid(const header_t* header)
 				"mytar: Unsupported header type: %d\n",
 				(int)header->typeflag);
 
-		return false;
+		return 2;
 	}
 
-	return true;
+	return 0;
 }
 
 /** Checks if 'header' is a null block. */
@@ -450,7 +450,7 @@ int main(int argc, char* argv[])
 		if ((return_code = header_check_valid(&header)) != 0)
 			break;
 
-		if (options.x && check_file_filter(&options, &header, files_found))
+		if (check_file_filter(&options, &header, files_found) && options.x)
 		{
 			file_output = fopen(header.name, "wb");
 			if (!file_output)
@@ -512,7 +512,7 @@ int main(int argc, char* argv[])
 	}
 
 	if (options.t && options_has_free_arguments(&options))
-		check_files(&options, files_found);
+		return_code = check_files(&options, files_found);
 
 	fclose(file);
 	if (file_output)
