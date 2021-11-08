@@ -1,20 +1,22 @@
 BasedOnStyle: Mozilla
 Language: Cpp
 ColumnLimit: 80
-UseTab: Always
+UseTab: Never
 TabWidth: 4
 IndentWidth: 4
 ContinuationIndentWidth: 4
 ConstructorInitializerIndentWidth: 4
 AccessModifierOffset: -4
 AllowShortFunctionsOnASingleLine: None
-AllowShortLambdasOnASingleLine: None
-NamespaceIndentation: All
+AllowShortLambdasOnASingleLine: Empty
+NamespaceIndentation: None
 BreakBeforeBraces: Custom
 BraceWrapping:
+  AfterControlStatement: true
   AfterClass: true
   AfterFunction: true
   AfterNamespace: true
+  AfterStruct: true
   BeforeLambdaBody: true
   BeforeElse: true
   SplitEmptyFunction: false
@@ -22,5 +24,9 @@ BraceWrapping:
 SpaceAfterTemplateKeyword: true
 AlwaysBreakAfterDefinitionReturnType: None
 AlwaysBreakAfterReturnType: None
-AlignAfterOpenBracket: Align
+BinPackArguments: false
+BinPackParameters: false
 AllowAllArgumentsOnNextLine: false
+Cpp11BracedListStyle: true
+SpacesInSquareBrackets: false
+#LambdaBodyIndentationKind: Signature
