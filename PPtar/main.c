@@ -89,7 +89,7 @@ static options_t parse_arguments_helper(size_t argc, char* const* argv)
 
         if (argument_length == 0)
         {
-            fprintf(stderr, "mytar: there was an empty string argument\n");
+            fprintf(stderr, "PPtar: there was an empty string argument\n");
             options.error_code = 2;
             return options;
         }
@@ -105,7 +105,7 @@ static options_t parse_arguments_helper(size_t argc, char* const* argv)
 
             if (argument_length != 2)
             {
-                fprintf(stderr, "mytar: invalid option format %s\n", arg);
+                fprintf(stderr, "PPtar: invalid option format %s\n", arg);
                 options.error_code = 3;
                 return options;
             }
@@ -128,7 +128,7 @@ static options_t parse_arguments_helper(size_t argc, char* const* argv)
                     options.v = true;
                     break;
                 default:
-                    fprintf(stderr, "mytar: invalid option '%c'\n", option);
+                    fprintf(stderr, "PPtar: invalid option '%c'\n", option);
                     options.error_code = 2;
                     return options;
             }
@@ -145,28 +145,28 @@ static options_t parse_arguments_helper(size_t argc, char* const* argv)
 
     if (options.f && !options.f_argument)
     {
-        fprintf(stderr, "mytar: option -f requires an argument\n");
+        fprintf(stderr, "PPtar: option -f requires an argument\n");
         options.error_code = 5;
         return options;
     }
 
     if (!options.f)
     {
-        fprintf(stderr, "mytar: no -f option\n");
+        fprintf(stderr, "PPtar: no -f option\n");
         options.error_code = 2;
         return options;
     }
 
     if (options.x && options.t)
     {
-        fprintf(stderr, "mytar: cannot specify -t and -x at once\n");
+        fprintf(stderr, "PPtar: cannot specify -t and -x at once\n");
         options.error_code = 7;
         return options;
     }
 
     if (!options.x && !options.t)
     {
-        fprintf(stderr, "mytar: must specify at least on of -tx\n");
+        fprintf(stderr, "PPtar: must specify at least on of -tx\n");
         options.error_code = 8;
         return options;
     }
@@ -262,15 +262,15 @@ static int header_check_valid(const header_t* header)
     if (!header_is_magic_valid(header))
     {
         fprintf(stderr,
-                "mytar: This does not look like a tar archive\n"
-                "mytar: Exiting with failure status due to previous errors\n");
+                "PPtar: This does not look like a tar archive\n"
+                "PPtar: Exiting with failure status due to previous errors\n");
 
         return 2;
     }
     else if (!header_is_regular_file(header))
     {
         fprintf(stderr,
-                "mytar: Unsupported header type: %d\n",
+                "PPtar: Unsupported header type: %d\n",
                 (int)header->typeflag);
 
         return 2;
@@ -314,7 +314,7 @@ static int check_files(const options_t* options,
     {
         if (!*i)
         {
-            printf("mytar: %s: Not found in archive\n",
+            printf("PPtar: %s: Not found in archive\n",
                    *free_argument_i); // should print to stderr
             some_was_not_found = true;
         }
@@ -322,7 +322,7 @@ static int check_files(const options_t* options,
 
     if (some_was_not_found)
     {
-        printf("mytar: Exiting with failure status due to previous "
+        printf("PPtar: Exiting with failure status due to previous "
                "errors\n"); // should print to stderr
 
         return 2;
@@ -371,7 +371,7 @@ static FILE* try_open_tarball(const options_t* options)
 
     if (!file)
     {
-        fprintf(stderr, "mytar: could not open file %s\n", options->f_argument);
+        fprintf(stderr, "PPtar: could not open file %s\n", options->f_argument);
         free(options->free_arguments);
     }
 
@@ -382,7 +382,7 @@ int main(int argc, char* argv[])
 {
     if (argc == 0)
     {
-        fprintf(stderr, "mytar: argc was 0\n");
+        fprintf(stderr, "PPtar: argc was 0\n");
         return 1;
     }
 
@@ -417,15 +417,15 @@ int main(int argc, char* argv[])
         if (read_header_status == READ_HEADER_EOF)
         {
             if (was_null_block)
-                printf("mytar: A lone zero block at %zu\n", block_index);
+                printf("PPtar: A lone zero block at %zu\n", block_index);
 
             return_code = 0;
             break;
         }
         else if (read_header_status == READ_HEADER_PARTIAL)
         {
-            printf("mytar: Unexpected EOF in archive\n"
-                   "mytar: Error is not recoverable: exiting now\n");
+            printf("PPtar: Unexpected EOF in archive\n"
+                   "PPtar: Error is not recoverable: exiting now\n");
 
             return_code = 2;
             break;
@@ -456,7 +456,7 @@ int main(int argc, char* argv[])
             if (!file_output)
             {
                 fprintf(stderr,
-                        "mytar: Couldn't create file %s\n",
+                        "PPtar: Couldn't create file %s\n",
                         header.name);
 
                 return_code = 9;
@@ -488,8 +488,8 @@ int main(int argc, char* argv[])
             if (read != RECORD_SIZE)
             {
                 printf(
-                    "mytar: Unexpected EOF in archive\n"
-                    "mytar: Error is not recoverable: exiting now\n"); // should
+                    "PPtar: Unexpected EOF in archive\n"
+                    "PPtar: Error is not recoverable: exiting now\n"); // should
                                                                        // print
                                                                        // to
                                                                        // stderr

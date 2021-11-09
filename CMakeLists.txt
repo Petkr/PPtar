@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.20)
 
 add_compile_options(
 	-Wall
@@ -9,4 +9,6 @@ add_compile_options(
 
 project(PPtar)
 
-add_executable(mytar "mytar.c")
+include("${CMAKE_CURRENT_LIST_DIR}/PPstyle/PPstyle.cmake")
+
+add_subdirectory(PPtar)
