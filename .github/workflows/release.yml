@@ -7,7 +7,7 @@ on:
 
 jobs:
   package:
-    uses: Petkr/PPtest/.github/workflows/package.yml@main
+    uses: Petkr/PPtar/.github/workflows/package.yml@main
   release:
     needs: package
     runs-on: ubuntu-latest
