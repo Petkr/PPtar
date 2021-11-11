@@ -1,0 +1,25 @@
+name: Package
+
+on:
+  - workflow_call
+  - workflow_dispatch
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 
+        uses: actions/checkout@v2
+      - name: Generate CMake
+        uses: Petkr/PPactions/cmake-generate@v1
+      - name: Build
+        uses: Petkr/PPactions/cmake-build@v1
+        with:
+          target: PPtar
+      - name: CPack
+        uses: Petkr/PPactions/cpack@v1
+      - name: Upload package
+        uses: actions/upload-artifact@v2
+        with:
+          name: package
+          path: out-cpack/*.tar.gz

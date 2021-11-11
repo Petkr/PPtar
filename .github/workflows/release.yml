@@ -1,0 +1,22 @@
+name: Release
+
+on: 
+  push:
+    tags:
+      - '*'
+
+jobs:
+  package:
+    uses: Petkr/PPtest/.github/workflows/package.yml@main
+  release:
+    needs: package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download package
+        uses: actions/download-artifact@v2
+        with:
+          name: package
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: PPtar-*.*.*-*.tar.gz
