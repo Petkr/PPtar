@@ -11,9 +11,9 @@ jobs:
       - name: Checkout 
         uses: actions/checkout@v2
       - name: Generate CMake
-        uses: Petkr/PPactions/cmake-generate@v1
+        uses: Petkr/PPactions/generate@v1
       - name: Build
-        uses: Petkr/PPactions/cmake-build@v1
+        uses: Petkr/PPactions/build@v1
         with:
           target: PPtar
       - name: CPack
@@ -22,4 +22,4 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: package
-          path: out-cpack/*.tar.gz
+          path: out-cpack/PPtar-*
